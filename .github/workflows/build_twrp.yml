@@ -59,7 +59,7 @@ jobs:
         # Если в вашем дереве другое имя в vendorsetup.sh, скрипт может упасть здесь.
         lunch twrp_degas-eng
         
-        mka recoveryimage
+        mka vendorbootimage
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
