@@ -57,7 +57,7 @@ jobs:
         
         # Выбор цели. Обычно для TWRP это twrp_degas-eng
         # Если в вашем дереве другое имя в vendorsetup.sh, скрипт может упасть здесь.
-        lunch twrp_degas-eng
+        lunch twrp_degas-trunk_staging-eng
         
         mka vendorbootimage
 
@@ -65,4 +65,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: TWRP-Recovery-Degas
-        path: workspace/out/target/product/degas/recovery.img
+        path: workspace/out/target/product/degas/vendor_boot.img
