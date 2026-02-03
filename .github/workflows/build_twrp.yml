@@ -1,7 +1,7 @@
 name: Build TWRP
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку кнопкой вручную
+  workflow_dispatch: # Кнопка ручного запуска
 
 jobs:
   build:
@@ -11,8 +11,16 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Cleanup Disk Space
-      uses: hyuuu/disk-space-reclaimer@v1
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
 
     - name: Install Dependencies
       run: |
@@ -32,7 +40,7 @@ jobs:
       run: |
         mkdir workspace
         cd workspace
-        # Инициализация минимального манифеста TWRP (AOSP 11 / TWRP 14.1)
+        # Инициализация для TWRP (Android 14)
         repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14.1
         repo sync -j$(nproc --all)
 
@@ -47,12 +55,13 @@ jobs:
         cd workspace
         export ALLOW_MISSING_DEPENDENCIES=true
         . build/envsetup.sh
-        # Выбираем цель сборки (проверь название, обычно twrp_codename-eng)
         lunch twrp_degas-eng
+        # СБОРКА VENDOR_BOOT
         mka vendorbootimage
 
-    - name: Upload Recovery Image
+    - name: Upload Vendor Boot Image
       uses: actions/upload-artifact@v4
       with:
-        name: recovery.img
+        name: vendor_boot.img
+        # Путь теперь ведет к vendor_boot.img
         path: workspace/out/target/product/degas/vendor_boot.img
