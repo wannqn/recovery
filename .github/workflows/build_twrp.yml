@@ -40,28 +40,44 @@ jobs:
       run: |
         mkdir workspace
         cd workspace
-        # Инициализация для TWRP (Android 14)
         repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14.1
         repo sync -j$(nproc --all)
 
     - name: Clone Device Tree
       run: |
         cd workspace
-        # Клонируем твое дерево устройства
         git clone https://github.com/xaveroprjkt/recovery_xiaomi_degas device/xiaomi/degas
+
+    - name: Fix Lunch Config
+      run: |
+        cd workspace/device/xiaomi/degas
+        
+        # 1. Дописываем отсутствующую переменную COMMON_LUNCH_CHOICES
+        # Без этого lunch не видит цель сборки!
+        echo 'COMMON_LUNCH_CHOICES := twrp_degas-eng' >> AndroidProducts.mk
+        
+        # 2. На всякий случай проверяем имя внутри самого файла twrp_degas.mk
+        # Если там вдруг написано "omni_degas", меняем на "twrp_degas", чтобы всё совпало
+        sed -i 's/PRODUCT_NAME := omni_degas/PRODUCT_NAME := twrp_degas/g' twrp_degas.mk
+        
+        # Выводим результат в лог для проверки
+        echo "=== Corrected AndroidProducts.mk ==="
+        cat AndroidProducts.mk
 
     - name: Build TWRP
       run: |
         cd workspace
         export ALLOW_MISSING_DEPENDENCIES=true
         . build/envsetup.sh
+        
+        # Теперь эта команда сработает, так как мы добавили её в CHOICES
         lunch twrp_degas-eng
-        # СБОРКА VENDOR_BOOT
+        
+        # Собираем vendor_boot
         mka vendorbootimage
 
     - name: Upload Vendor Boot Image
       uses: actions/upload-artifact@v4
       with:
         name: vendor_boot.img
-        # Путь теперь ведет к vendor_boot.img
         path: workspace/out/target/product/degas/vendor_boot.img
