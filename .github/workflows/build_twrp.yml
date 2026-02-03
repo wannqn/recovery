@@ -1,7 +1,7 @@
 name: Build TWRP
 
 on:
-  workflow_dispatch: # Кнопка ручного запуска
+  workflow_dispatch:
 
 jobs:
   build:
@@ -48,21 +48,22 @@ jobs:
         cd workspace
         git clone https://github.com/xaveroprjkt/recovery_xiaomi_degas device/xiaomi/degas
 
-    - name: Fix Lunch Config
+    - name: Nuclear Rename to TWRP
       run: |
         cd workspace/device/xiaomi/degas
         
-        # 1. Дописываем отсутствующую переменную COMMON_LUNCH_CHOICES
-        # Без этого lunch не видит цель сборки!
+        # Переименовываем файл makefile, если он называется по-старому
+        if [ -f omni_degas.mk ]; then
+            mv omni_degas.mk twrp_degas.mk
+        fi
+
+        # Заменяем все упоминания omni_degas на twrp_degas во всех файлах
+        # Это изменит PRODUCT_NAME внутри makefile, что критически важно
+        grep -rl "omni_degas" . | xargs sed -i 's/omni_degas/twrp_degas/g' || true
+
+        # Создаем правильный AndroidProducts.mk с нуля
+        echo 'PRODUCT_MAKEFILES := $(LOCAL_DIR)/twrp_degas.mk' > AndroidProducts.mk
         echo 'COMMON_LUNCH_CHOICES := twrp_degas-eng' >> AndroidProducts.mk
-        
-        # 2. На всякий случай проверяем имя внутри самого файла twrp_degas.mk
-        # Если там вдруг написано "omni_degas", меняем на "twrp_degas", чтобы всё совпало
-        sed -i 's/PRODUCT_NAME := omni_degas/PRODUCT_NAME := twrp_degas/g' twrp_degas.mk
-        
-        # Выводим результат в лог для проверки
-        echo "=== Corrected AndroidProducts.mk ==="
-        cat AndroidProducts.mk
 
     - name: Build TWRP
       run: |
@@ -70,10 +71,9 @@ jobs:
         export ALLOW_MISSING_DEPENDENCIES=true
         . build/envsetup.sh
         
-        # Теперь эта команда сработает, так как мы добавили её в CHOICES
+        # Теперь lunch точно должен найти twrp_degas
         lunch twrp_degas-eng
         
-        # Собираем vendor_boot
         mka vendorbootimage
 
     - name: Upload Vendor Boot Image
