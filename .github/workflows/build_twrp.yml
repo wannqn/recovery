@@ -1,68 +1,58 @@
-name: Build TWRP for Degas
+name: Build TWRP
 
 on:
-  workflow_dispatch: # Добавляет кнопку "Run workflow" для ручного запуска
+  workflow_dispatch: # Позволяет запускать сборку кнопкой вручную
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Free Disk Space (Cleanup)
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        swap-storage: true
-        docker-images: true
+    - name: Cleanup Disk Space
+      uses: hyuuu/disk-space-reclaimer@v1
 
-    - name: Set up Environment
+    - name: Install Dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+        sudo apt update
+        sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+
+    - name: Install Repo
+      run: |
         mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
-        git config --global user.email "bot@example.com"
-        git config --global user.name "BuildBot"
+        echo "$HOME/bin" >> $GITHUB_PATH
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
 
-    - name: Initialize Repo (TWRP 14)
+    - name: Initialize Repo
       run: |
         mkdir workspace
         cd workspace
-        export PATH=~/bin:$PATH
-        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14 --depth=1
-        repo sync -j$(nproc --all) --force-sync
+        # Инициализация минимального манифеста TWRP (AOSP 11 / TWRP 14.1)
+        repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14.1
+        repo sync -j$(nproc --all)
 
     - name: Clone Device Tree
       run: |
         cd workspace
-        # Клонируем ваше дерево в нужный путь
+        # Клонируем твое дерево устройства
         git clone https://github.com/xaveroprjkt/recovery_xiaomi_degas device/xiaomi/degas
 
-    - name: Build Recovery
+    - name: Build TWRP
       run: |
         cd workspace
-        export PATH=~/bin:$PATH
         export ALLOW_MISSING_DEPENDENCIES=true
         . build/envsetup.sh
-        
-        # Выбор цели. Обычно для TWRP это twrp_degas-eng
-        # Если в вашем дереве другое имя в vendorsetup.sh, скрипт может упасть здесь.
-        lunch twrp_degas-trunk_staging-eng
-        
+        # Выбираем цель сборки (проверь название, обычно twrp_codename-eng)
+        lunch twrp_degas-eng
         mka vendorbootimage
 
-    - name: Upload Artifact
+    - name: Upload Recovery Image
       uses: actions/upload-artifact@v4
       with:
-        name: TWRP-Recovery-Degas
+        name: recovery.img
         path: workspace/out/target/product/degas/vendor_boot.img
